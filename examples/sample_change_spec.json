@@ -1,0 +1,8 @@
+{
+  "entity_fqn": "Stripe.default.public.raw_stripe_data",
+  "change_type": "drop_column",
+  "change_details": {
+    "column_name": "revenue_cents"
+  },
+  "traversal_depth": 5
+}

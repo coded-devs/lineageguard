@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lineageguard"
+version = "0.1.0"
+description = "Downstream impact analysis tool for OpenMetadata"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx",
+    "pydantic>=2",
+    "click",
+    "python-dotenv",
+    "mcp"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]
+
+[project.scripts]
+lineageguard = "lineageguard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
