@@ -1,0 +1,90 @@
+{
+  "source_entity": "Stripe.stripe_db.public.raw_stripe_data",
+  "analysis_timestamp": "2026-04-20T05:09:37Z",
+  "findings": [
+    {
+      "severity": "CRITICAL",
+      "entity_fqn": "Snowflake.analytics_db.dbt_schema.fct_orders",
+      "entity_name": "fct_orders",
+      "entity_type": "table",
+      "depth": 2,
+      "business_concept": "NetRevenue",
+      "tier": "Tier1",
+      "owner": {
+        "name": "Finance",
+        "team": "Finance"
+      },
+      "governance": {
+        "contract_violated": true,
+        "tier_classification": "Tier1"
+      },
+      "reason": "Contract-protected asset: Data Contract 'FinanceCoreMetrics' on fct_orders."
+    },
+    {
+      "severity": "HIGH",
+      "entity_fqn": "Snowflake.analytics_db.dbt_schema.dim_customers",
+      "entity_name": "dim_customers",
+      "entity_type": "table",
+      "depth": 1,
+      "business_concept": "Customer",
+      "tier": "Tier2",
+      "owner": null,
+      "governance": {
+        "contract_violated": false,
+        "tier_classification": "Tier2"
+      },
+      "reason": "Tier 2 asset backing business concept Customer."
+    },
+    {
+      "severity": "HIGH",
+      "entity_fqn": "Metabase.executive_revenue_dashboard",
+      "entity_name": "executive_revenue_dashboard",
+      "entity_type": "dashboard",
+      "depth": 3,
+      "business_concept": null,
+      "tier": "Tier1",
+      "owner": null,
+      "governance": {
+        "contract_violated": false,
+        "tier_classification": "Tier1"
+      },
+      "reason": "Tier 1 asset with no additional governance \u2014 still business-critical."
+    },
+    {
+      "severity": "WARNING",
+      "entity_fqn": "Metabase.marketing_attribution_dashboard",
+      "entity_name": "marketing_attribution_dashboard",
+      "entity_type": "dashboard",
+      "depth": 3,
+      "business_concept": null,
+      "tier": "Tier3",
+      "owner": null,
+      "governance": {
+        "contract_violated": false,
+        "tier_classification": "Tier3"
+      },
+      "reason": "Tier 3 asset \u2014 lower priority but worth flagging."
+    },
+    {
+      "severity": "INFO",
+      "entity_fqn": "Snowflake.analytics_db.dbt_schema.stg_stripe_charges",
+      "entity_name": "stg_stripe_charges",
+      "entity_type": "table",
+      "depth": 1,
+      "business_concept": null,
+      "tier": null,
+      "owner": null,
+      "governance": {
+        "contract_violated": false,
+        "tier_classification": null
+      },
+      "reason": "No semantic governance attached."
+    }
+  ],
+  "findings_summary": {
+    "critical": 1,
+    "high": 2,
+    "warning": 1,
+    "info": 1
+  }
+}
