@@ -22,6 +22,7 @@ dev = [
 
 [project.scripts]
 lineageguard = "lineageguard.cli:main"
+lineageguard-mcp = "lineageguard.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
