@@ -1,0 +1,283 @@
+# ============================================================
+# OpenMetadata 1.9.1 — Local Development Stack
+# ============================================================
+# Login URL:   http://localhost:8585
+# Default user: admin@open-metadata.org
+# Default pass: admin
+# Airflow URL:  http://localhost:8080 (user: admin, pass: admin)
+#
+# LOCAL DEV ONLY — do not use these credentials in production.
+# ============================================================
+
+
+volumes:
+  ometa_db_data:
+  ometa_es_data:
+  ingestion-volume-dag-airflow:
+  ingestion-volume-dags:
+  ingestion-volume-tmp:
+
+networks:
+  app_net:
+    driver: bridge
+
+services:
+
+  # ----------------------------------------------------------
+  # 1. MySQL — metadata store
+  # ----------------------------------------------------------
+  mysql:
+    image: docker.getcollate.io/openmetadata/db:1.9.1
+    container_name: openmetadata_mysql
+    restart: unless-stopped
+    command: "--sort_buffer_size=10M"
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ometa_db_data:/var/lib/mysql
+    networks:
+      - app_net
+    healthcheck:
+      test: mysqladmin ping -h localhost
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ----------------------------------------------------------
+  # 2. Elasticsearch — search index
+  # ----------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.22
+    container_name: openmetadata_elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - "bootstrap.memory_lock=false"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - ometa_es_data:/usr/share/elasticsearch/data
+    networks:
+      - app_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
+
+  # ----------------------------------------------------------
+  # 3. Database migration init container
+  #    Runs once on first boot, then exits.
+  # ----------------------------------------------------------
+  execute-migrate-all:
+    image: docker.getcollate.io/openmetadata/server:1.9.1
+    container_name: execute_migrate_all
+    command: "./bootstrap/openmetadata-ops.sh migrate"
+    environment:
+      OPENMETADATA_CLUSTER_NAME: openmetadata
+      SERVER_PORT: 8585
+      SERVER_ADMIN_PORT: 8586
+      LOG_LEVEL: INFO
+      MIGRATION_LIMIT_PARAM: 1200
+      # Authentication
+      AUTHORIZER_CLASS_NAME: org.openmetadata.service.security.DefaultAuthorizer
+      AUTHORIZER_REQUEST_FILTER: org.openmetadata.service.security.JwtFilter
+      AUTHORIZER_ADMIN_PRINCIPALS: "[admin]"
+      AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN: '["all"]'
+      AUTHORIZER_INGESTION_PRINCIPALS: "[ingestion-bot]"
+      AUTHORIZER_PRINCIPAL_DOMAIN: "open-metadata.org"
+      AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN: "false"
+      AUTHORIZER_ENABLE_SECURE_SOCKET: "false"
+      AUTHENTICATION_PROVIDER: basic
+      AUTHENTICATION_PUBLIC_KEYS: "[http://localhost:8585/api/v1/system/config/jwks]"
+      AUTHENTICATION_AUTHORITY: https://accounts.google.com
+      AUTHENTICATION_CLIENT_ID: ""
+      AUTHENTICATION_CALLBACK_URL: ""
+      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS: "[email,preferred_username,sub]"
+      AUTHENTICATION_ENABLE_SELF_SIGNUP: "true"
+      AUTHENTICATION_CLIENT_TYPE: public
+      # JWT
+      RSA_PUBLIC_KEY_FILE_PATH: "./conf/public_key.der"
+      RSA_PRIVATE_KEY_FILE_PATH: "./conf/private_key.der"
+      JWT_ISSUER: "open-metadata.org"
+      JWT_KEY_ID: "Gb389a-9f76-gdjs-a92j-0242bk94356"
+      # Pipeline service client
+      PIPELINE_SERVICE_CLIENT_ENDPOINT: http://ingestion:8080
+      SERVER_HOST_API_URL: http://openmetadata-server:8585/api
+      PIPELINE_SERVICE_CLIENT_VERIFY_SSL: "no-ssl"
+      PIPELINE_SERVICE_CLIENT_SSL_CERT_PATH: ""
+      PIPELINE_SERVICE_CLIENT_CLASS_NAME: "org.openmetadata.service.clients.pipeline.airflow.AirflowRESTClient"
+      PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER: "noop"
+      # Airflow parameters
+      AIRFLOW_USERNAME: admin
+      AIRFLOW_PASSWORD: admin
+      AIRFLOW_TIMEOUT: 10
+      FERNET_KEY: "jJ/9sz0g0OHxsfxOoSfdFdmk3ysNmPRnH3TUAbz3IHA="
+      # Database — MySQL
+      DB_DRIVER_CLASS: com.mysql.cj.jdbc.Driver
+      DB_SCHEME: mysql
+      DB_PARAMS: "allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC"
+      DB_USE_SSL: "false"
+      DB_USER: openmetadata_user
+      DB_USER_PASSWORD: openmetadata_password
+      DB_HOST: mysql
+      DB_PORT: 3306
+      OM_DATABASE: openmetadata_db
+      # Elasticsearch
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: 9200
+      ELASTICSEARCH_SCHEME: http
+      SEARCH_TYPE: "elasticsearch"
+      # Secrets manager
+      SECRET_MANAGER: db
+    depends_on:
+      mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - app_net
+
+  # ----------------------------------------------------------
+  # 3. OpenMetadata Server
+  # ----------------------------------------------------------
+  openmetadata-server:
+    image: docker.getcollate.io/openmetadata/server:1.9.1
+    container_name: openmetadata_server
+    restart: always
+    environment:
+      OPENMETADATA_CLUSTER_NAME: openmetadata
+      SERVER_PORT: 8585
+      SERVER_ADMIN_PORT: 8586
+      LOG_LEVEL: INFO
+      # Authentication — basic auth (default admin user)
+      AUTHORIZER_CLASS_NAME: org.openmetadata.service.security.DefaultAuthorizer
+      AUTHORIZER_REQUEST_FILTER: org.openmetadata.service.security.JwtFilter
+      AUTHORIZER_ADMIN_PRINCIPALS: "[admin]"
+      AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN: '["all"]'
+      AUTHORIZER_INGESTION_PRINCIPALS: "[ingestion-bot]"
+      AUTHORIZER_PRINCIPAL_DOMAIN: "open-metadata.org"
+      AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN: "false"
+      AUTHORIZER_ENABLE_SECURE_SOCKET: "false"
+      AUTHENTICATION_PROVIDER: basic
+      AUTHENTICATION_PUBLIC_KEYS: "[http://localhost:8585/api/v1/system/config/jwks]"
+      AUTHENTICATION_AUTHORITY: https://accounts.google.com
+      AUTHENTICATION_CLIENT_ID: ""
+      AUTHENTICATION_CALLBACK_URL: ""
+      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS: "[email,preferred_username,sub]"
+      AUTHENTICATION_ENABLE_SELF_SIGNUP: "true"
+      AUTHENTICATION_CLIENT_TYPE: public
+      # JWT keys (shipped inside the server image)
+      RSA_PUBLIC_KEY_FILE_PATH: "./conf/public_key.der"
+      RSA_PRIVATE_KEY_FILE_PATH: "./conf/private_key.der"
+      JWT_ISSUER: "open-metadata.org"
+      JWT_KEY_ID: "Gb389a-9f76-gdjs-a92j-0242bk94356"
+      # Pipeline service client → Airflow ingestion container
+      PIPELINE_SERVICE_CLIENT_ENDPOINT: http://ingestion:8080
+      PIPELINE_SERVICE_CLIENT_HEALTH_CHECK_INTERVAL: 300
+      SERVER_HOST_API_URL: http://openmetadata-server:8585/api
+      PIPELINE_SERVICE_CLIENT_VERIFY_SSL: "no-ssl"
+      PIPELINE_SERVICE_CLIENT_SSL_CERT_PATH: ""
+      PIPELINE_SERVICE_CLIENT_ENABLED: "true"
+      PIPELINE_SERVICE_CLIENT_CLASS_NAME: "org.openmetadata.service.clients.pipeline.airflow.AirflowRESTClient"
+      PIPELINE_SERVICE_IP_INFO_ENABLED: "false"
+      PIPELINE_SERVICE_CLIENT_HOST_IP: ""
+      PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER: "noop"
+      # Airflow parameters
+      AIRFLOW_USERNAME: admin
+      AIRFLOW_PASSWORD: admin
+      AIRFLOW_TIMEOUT: 10
+      FERNET_KEY: "jJ/9sz0g0OHxsfxOoSfdFdmk3ysNmPRnH3TUAbz3IHA="
+      # Database — MySQL
+      DB_DRIVER_CLASS: com.mysql.cj.jdbc.Driver
+      DB_SCHEME: mysql
+      DB_PARAMS: "allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC"
+      DB_USE_SSL: "false"
+      DB_USER: openmetadata_user
+      DB_USER_PASSWORD: openmetadata_password
+      DB_HOST: mysql
+      DB_PORT: 3306
+      OM_DATABASE: openmetadata_db
+      # Elasticsearch
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: 9200
+      ELASTICSEARCH_SCHEME: http
+      ELASTICSEARCH_USER: ""
+      ELASTICSEARCH_PASSWORD: ""
+      SEARCH_TYPE: "elasticsearch"
+      ELASTICSEARCH_CONNECTION_TIMEOUT_SECS: 5
+      ELASTICSEARCH_SOCKET_TIMEOUT_SECS: 60
+      ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS: 600
+      ELASTICSEARCH_BATCH_SIZE: 100
+      ELASTICSEARCH_INDEX_MAPPING_LANG: EN
+      # Event monitoring
+      EVENT_MONITOR: prometheus
+      EVENT_MONITOR_BATCH_SIZE: 10
+      # Secrets manager
+      SECRET_MANAGER: db
+      # Heap
+      OPENMETADATA_HEAP_OPTS: "-Xmx1G -Xms1G"
+      MASK_PASSWORDS_API: "false"
+      # Web config
+      WEB_CONF_URI_PATH: "/api"
+    ports:
+      - "8585:8585"
+      - "8586:8586"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      execute-migrate-all:
+        condition: service_completed_successfully
+    networks:
+      - app_net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8586/healthcheck"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ----------------------------------------------------------
+  # 4. Ingestion — Airflow-based ingestion worker
+  # ----------------------------------------------------------
+  ingestion:
+    image: docker.getcollate.io/openmetadata/ingestion:1.9.1
+    container_name: openmetadata_ingestion
+    restart: always
+    environment:
+      AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__OPENMETADATA_AIRFLOW_APIS__DAG_GENERATED_CONFIGS: "/opt/airflow/dag_generated_configs"
+      DB_HOST: mysql
+      DB_PORT: 3306
+      AIRFLOW_DB: airflow_db
+      DB_SCHEME: mysql+mysqldb
+      DB_USER: airflow_user
+      DB_PASSWORD: airflow_pass
+    entrypoint: /bin/bash
+    command:
+      - "/opt/airflow/ingestion_dependency.sh"
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      openmetadata-server:
+        condition: service_started
+    networks:
+      - app_net
+    volumes:
+      - ingestion-volume-dag-airflow:/opt/airflow/dag_generated_configs
+      - ingestion-volume-dags:/opt/airflow/dags
+      - ingestion-volume-tmp:/tmp
