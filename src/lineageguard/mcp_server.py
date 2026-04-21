@@ -2,9 +2,6 @@
 MCP Server for LineageGuard.
 """
 import sys
-# CRITICAL: MCP uses stdio for transport. Any print() to stdout will corrupt the JSON-RPC protocol.
-# Redirect all stdout to stderr before any other modules import and potentially print.
-sys.stdout = sys.stderr
 
 import json
 import asyncio

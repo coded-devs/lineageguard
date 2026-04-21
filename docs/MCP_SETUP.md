@@ -12,19 +12,15 @@ On Windows, this is typically located at:
 On macOS:
 `~/Library/Application Support/Claude/claude_desktop_config.json`
 
+The 'cwd' key is REQUIRED — it ensures .env is discoverable when Claude Desktop launches the server.
+
 ```json
 {
   "mcpServers": {
     "lineageguard": {
-      "command": "path/to/lineageguard/.venv/Scripts/python.exe",
-      "args": [
-        "-m",
-        "lineageguard.mcp_server"
-      ],
-      "env": {
-        "OPENMETADATA_URL": "http://localhost:8585/api/v1",
-        "OPENMETADATA_TOKEN": "YOUR_PERSONAL_ACCESS_TOKEN"
-      }
+      "command": "C:\\Users\\HP\\OneDrive\\Desktop\\startup\\Team\\Coded-devs\\Building\\lineageguard\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "lineageguard.mcp_server"],
+      "cwd": "C:\\Users\\HP\\OneDrive\\Desktop\\startup\\Team\\Coded-devs\\Building\\lineageguard"
     }
   }
 }
