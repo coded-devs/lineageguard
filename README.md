@@ -2,7 +2,7 @@
 
 A deterministic semantic blast radius analyzer for OpenMetadata.
 
-![LineageGuard in Action](placeholder_hero_screenshot.png)
+![LineageGuard in Action](hero.png)
 
 ## The Problem
 
@@ -12,7 +12,7 @@ Existing lineage graphs show what connects to what, but human operators must man
 
 ## The Solution
 
-LineageGuard evaluates schema changes before they merge by walking the OpenMetadata lineage graph and applying deterministic governance signals. It treats metadata as deterministic code, not abstract documentation. 
+LineageGuard evaluates schema changes before they merge by walking the OpenMetadata lineage graph and applying deterministic governance signals. It treats metadata as deterministic code, not abstract documentation.
 
 Given a simulated schema change, the engine traverses downstream dependencies to evaluate ownership, tiering, glossary terms, and data contracts. It ranks each affected entity using a strict classification algorithm, outputting structured JSON. This isolates the reasoning in the deterministic engine, allowing an LLM to accurately narrate the business impact without hallucinating severities or inventing dependencies.
 
@@ -47,18 +47,19 @@ LineageGuard exposes a Model Context Protocol (MCP) server. To connect it to you
 
 ## The Semantic Ranker
 
-| Severity | Criteria |
-| --- | --- |
+| Severity | Criteria                                                            |
+| -------- | ------------------------------------------------------------------- |
 | CRITICAL | Tier 1 asset OR active contract violation OR critical glossary term |
-| HIGH | Tier 2 asset OR important glossary term |
-| WARNING | Tier 3 asset |
-| INFO | Untiered asset with no significant governance signals |
+| HIGH     | Tier 2 asset OR important glossary term                             |
+| WARNING  | Tier 3 asset                                                        |
+| INFO     | Untiered asset with no significant governance signals               |
 
 ## Design Principle
 
 From the system specifications:
+
 > **The engine is deterministic. The LLM is only a narrator.**
-> 
+>
 > All severity classification, lineage traversal, and impact decisions happen in pure Python code — no LLM calls inside the engine. LLMs (Claude, etc.) only consume the structured JSON output and translate it into human-readable explanations.
 
 ## Example Output
@@ -70,6 +71,7 @@ From the system specifications:
 **Analysis time:** 2026-04-20T05:09:37Z
 
 ## Summary
+
 - 🔴 CRITICAL: 1
 - 🟠 HIGH: 2
 - 🟡 WARNING: 1
@@ -78,6 +80,7 @@ From the system specifications:
 ## Findings
 
 ### 🔴 CRITICAL — fct_orders (depth 2)
+
 **Business concept:** NetRevenue
 **Tier:** Tier1
 **Owner:** Finance
@@ -88,6 +91,7 @@ From the system specifications:
 ---
 
 ### 🟠 HIGH — dim_customers (depth 1)
+
 **Business concept:** Customer
 **Tier:** Tier2
 **Contract violated:** no
@@ -97,6 +101,7 @@ From the system specifications:
 ---
 
 ### 🟠 HIGH — executive_revenue_dashboard (depth 3)
+
 **Tier:** Tier1
 **Contract violated:** no
 
@@ -105,6 +110,7 @@ From the system specifications:
 ---
 
 ### 🟡 WARNING — marketing_attribution_dashboard (depth 3)
+
 **Tier:** Tier3
 **Contract violated:** no
 
@@ -113,6 +119,7 @@ From the system specifications:
 ---
 
 ### 🔵 INFO — stg_stripe_charges (depth 1)
+
 **Contract violated:** no
 
 > No semantic governance attached.

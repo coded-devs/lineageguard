@@ -14,3 +14,7 @@ build/
 Thumbs.db
 *.log
 om_data/
+
+# AI context files
+CLAUDE.md
+GEMINI.md
