@@ -1,6 +1,6 @@
 # LineageGuard
 
-A deterministic semantic blast radius analyzer for OpenMetadata.
+A deterministic semantic blast radius analyzer for **[OpenMetadata](https://github.com/open-metadata/OpenMetadata.git).**
 
 ![LineageGuard in Action](hero.png)
 
